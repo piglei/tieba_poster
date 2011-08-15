@@ -78,11 +78,12 @@ class BaiduUser(object):
     LOGIN_URL = "https://passport.baidu.com/?login"
     LOGIN_IMG_URL = "https://passport.baidu.com/?verifypic"
     POST_URL = "http://tieba.baidu.com/f/commit/post/add"
+    THREAD_URL = "http://tieba.baidu.com/f/commit/thread/add"
     TBS_URL = "http://tieba.baidu.com/dc/common/tbs"
     VCODE_URL = "http://tieba.baidu.com/f/user/json_vcode?lm=%s&rs10=2&rs1=0&t=0.7"
     IMG_URL = "http://tieba.baidu.com/cgi-bin/genimg?%s"
 
-    ERR_MSGS = {
+    LOGIN_ERR_MSGS = {
         "1": "用户名格式错误，请重新输入",
         "2": "用户不存在",
         "3": "",
@@ -162,17 +163,31 @@ class BaiduUser(object):
         err_code =  text_wrapped_by("get_err_str(", ",", body)
         # 如果是需要输入验证码
         if err_code == '257':
+            print "需要输入验证码，重新登录中..."
             verify_code = self.open_img(self.LOGIN_IMG_URL)
             return self.login(verify_code=verify_code)
         
-        err_msg = self.ERR_MSGS.get(err_code, self.ERR_MSGS["default"])
+        err_msg = self.LOGIN_ERR_MSGS.get(err_code, self.ERR_MSGS["default"])
         raise LoginError(err_msg)
 
-    def post(self, url, content):
-        """
-        发表回帖
-        """
+    def reply(self, url, content):
+        """回复帖子"""
         print u"%s 正在发表回帖(%s)..." % (self.username, url)
+        return self._post("post", url, content)
+
+    def post(self, url, title, content):
+        """发布帖子"""
+        print u"%s 正在发表主帖(%s)..." % (self.username, url)
+        return self._post("thread", url, title, content)
+
+    def _post(self, ptype, *args):
+        """
+        发表回帖或主贴
+        """
+        if ptype == "thread":
+            url, title, content = args
+        else:
+            url, content = args
         post_content = self.opener.open(url).read().decode("gbk", "ignore")
         tieba_name = self.get_tieba_name(post_content)
         if not tieba_name:
@@ -187,7 +202,7 @@ class BaiduUser(object):
         # 获得验证码而且写入本地文件
         vcode = self.open_img(self.IMG_URL % vcode_md5)
 
-        args = {
+        post_args = {
             "add_post_submit": " 发 表 ",
             "hasuploadpic": 0,
             "ie": "utf-8",
@@ -203,7 +218,14 @@ class BaiduUser(object):
             "vcode": vcode,
             "vcode_md5": vcode_md5,
         }
-        ret = self.opener.open(self.POST_URL, urllib.urlencode(args))
+        if ptype == "thread":
+            post_args.update(
+                title=title,
+                tfrom=1,
+                useSignName="on",
+                floor_num=0
+            )
+        ret = self.opener.open(self.POST_URL if ptype == "post" else self.THREAD_URL, urllib.urlencode(post_args))
         ret = simplejson.loads(ret.read())
         ret_no = ret["no"]
         if ret_no == 0:
@@ -216,7 +238,7 @@ class BaiduUser(object):
             print "发帖失败。(%s)..." % ret_no
 
         if ret_no in (38, 40):
-            return self.post(url, content)
+            return self._post(ptype, *args)
 
     @staticmethod
     def get_tieba_name(content):
@@ -268,4 +290,7 @@ if __name__ == '__main__':
     password = "password"
     u = BaiduUser(username, password)
     u.login()
-    u.post("http://tieba.baidu.com/p/1150567896", "test")
+    # 发表主贴
+    u.post("http://tieba.baidu.com/f?kw=asdfasdf", "this is a test(2)", "Hello, world.")
+    # 发表回复
+    u.reply("http://tieba.baidu.com/p/1150567896", "test")
