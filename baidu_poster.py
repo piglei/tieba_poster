@@ -5,9 +5,7 @@ Version: 1.0
 """
 import wx
 import os
-import time
 import urllib
-import string
 import urllib2
 import cookielib
 import simplejson
@@ -167,7 +165,7 @@ class BaiduUser(object):
             verify_code = self.open_img(self.LOGIN_IMG_URL)
             return self.login(verify_code=verify_code)
         
-        err_msg = self.LOGIN_ERR_MSGS.get(err_code, self.ERR_MSGS["default"])
+        err_msg = self.LOGIN_ERR_MSGS.get(err_code, self.LOGIN_ERR_MSGS["default"])
         raise LoginError(err_msg)
 
     def reply(self, url, content):
