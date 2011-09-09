@@ -192,7 +192,7 @@ class BaiduUser(object):
             return
 
         tieba_name = tieba_name.encode("utf-8")
-        tbs = self.get_tbs()
+        tbs = self.get_tbs(post_content)
         tid = self.get_tid(post_content)
         fid = self.get_fid(post_content)
         vcode_md5 = self.get_vcode(fid)
@@ -201,12 +201,13 @@ class BaiduUser(object):
         vcode = self.open_img(self.IMG_URL % vcode_md5)
 
         post_args = {
-            "add_post_submit": " 发 表 ",
             "hasuploadpic": 0,
             "ie": "utf-8",
             "picsign": "",
             "rich_text": 1,
+            "tfrom": 1,
             "quote_id": 0,
+            "user_type": 0,
             "floor_num": "",
             "content": "%s<br>" % content,
             "kw": tieba_name, 
@@ -219,7 +220,6 @@ class BaiduUser(object):
         if ptype == "thread":
             post_args.update(
                 title=title,
-                tfrom=1,
                 useSignName="on",
                 floor_num=0
             )
@@ -246,19 +246,18 @@ class BaiduUser(object):
         return None
 
     @staticmethod
+    def get_tbs(content):
+        return text_wrapped_by('tbs:"', '"', content)
+
+    @staticmethod
     def get_tid(content):
-        ret = text_wrapped_by('id="tid" value="', '"', content)
+        ret = text_wrapped_by("tid:'", "'", content)
         return ret
 
     @staticmethod
     def get_fid(content):
-        ret = text_wrapped_by('id="fid" value="', '"', content)
+        ret = text_wrapped_by("fid:'", "'", content)
         return ret
-
-    def get_tbs(self):
-        content = self.opener.open(self.TBS_URL).read()
-        content = simplejson.loads(content)
-        return content["tbs"]
 
     def get_vcode(self, fid):
         content = self.opener.open(self.VCODE_URL % fid).read()
